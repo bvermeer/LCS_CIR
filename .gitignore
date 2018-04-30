@@ -62,5 +62,6 @@ local.properties
 *.su
 *.o
 
-# Debug directory
+# Debug and Release directorys
 Debug/
+Release/
