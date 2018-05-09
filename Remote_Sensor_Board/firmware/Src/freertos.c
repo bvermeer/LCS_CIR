@@ -53,12 +53,15 @@
 
 /* USER CODE BEGIN Includes */     
 #include "gpio.h"
+#include "usart.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Variables -----------------------------------------------------------------*/
 osThreadId defaultTaskHandle;
 
 /* USER CODE BEGIN Variables */
+osThreadId linTaskHandle;
 
 /* USER CODE END Variables */
 
@@ -68,6 +71,7 @@ void StartDefaultTask(void const * argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* USER CODE BEGIN FunctionPrototypes */
+void StartLinTask(void const * argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -98,7 +102,8 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  osThreadDef(linTask, StartLinTask, osPriorityBelowNormal, 1, 128);
+  linTaskHandle = osThreadCreate(osThread(linTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -123,6 +128,22 @@ void StartDefaultTask(void const * argument)
 }
 
 /* USER CODE BEGIN Application */
+
+// Task to handle LIN communication
+void StartLinTask(void const * argument)
+{
+	char charBuf[30] = "LIN thread started.\r\n";
+
+	HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+
+	strcpy(charBuf, "    LIN loop ran.\r\n");
+
+	while(1)
+	{
+		osDelay(1000);
+		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+	}
+}
      
 /* USER CODE END Application */
 

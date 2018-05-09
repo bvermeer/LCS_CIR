@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Project>
-<ProjectName>/media/DATA/Documents/Loveland_Creatorspace/CNC/Sensor_Boards/Source/CIR_Sensor_Board/\CIR_Sensor_Board</ProjectName>
+<ProjectName>/media/DATA/Documents/Loveland_Creatorspace/CNC/LCS_CIR/Remote_Sensor_Board/firmware/\CIR_Sensor_Board</ProjectName>
 <ProjectNature>C</ProjectNature> 
 <CMSIS>../Drivers/CMSIS</CMSIS>
 <HAL_Driver>/home/blake/STM32Cube/Repository//STM32Cube_FW_F1_V1.6.1/Drivers/CMSIS</HAL_Driver>
@@ -32,7 +32,7 @@
     <usedDebug>true</usedDebug>
     	<debugprobe>swd</debugprobe>
     <optimization></optimization>
-    <icfloc>0</icfloc>
+    <icfloc>1</icfloc>
     <Adefines>
         <define></define>
     </Adefines>   
