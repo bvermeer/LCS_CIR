@@ -59,6 +59,7 @@
 
 /* Variables -----------------------------------------------------------------*/
 osThreadId defaultTaskHandle;
+osThreadId LinTaskHandle;
 
 /* USER CODE BEGIN Variables */
 osThreadId linTaskHandle;
@@ -67,6 +68,7 @@ osThreadId linTaskHandle;
 
 /* Function prototypes -------------------------------------------------------*/
 void StartDefaultTask(void const * argument);
+void StartLinTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -101,9 +103,12 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
+  /* definition and creation of LinTask */
+  osThreadDef(LinTask, StartLinTask, osPriorityAboveNormal, 0, 128);
+  LinTaskHandle = osThreadCreate(osThread(LinTask), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
-  osThreadDef(linTask, StartLinTask, osPriorityBelowNormal, 1, 128);
-  linTaskHandle = osThreadCreate(osThread(linTask), NULL);
+
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -127,11 +132,11 @@ void StartDefaultTask(void const * argument)
   /* USER CODE END StartDefaultTask */
 }
 
-/* USER CODE BEGIN Application */
-
-// Task to handle LIN communication
+/* StartLinTask function */
 void StartLinTask(void const * argument)
 {
+  /* USER CODE BEGIN StartLinTask */
+  /* Infinite loop */
 	char charBuf[30] = "LIN thread started.\r\n";
 
 	HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
@@ -143,8 +148,11 @@ void StartLinTask(void const * argument)
 		osDelay(1000);
 		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 	}
+  /* USER CODE END StartLinTask */
 }
-     
+
+/* USER CODE BEGIN Application */
+
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

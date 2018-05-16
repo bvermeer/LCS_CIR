@@ -37,7 +37,9 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "FreeRTOS.h"
+#include "event_groups.h"
+#include "stm32f1xx_hal_uart.h"
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -189,15 +191,18 @@ void USART2_IRQHandler(void)
 {
   /* USER CODE BEGIN USART2_IRQn 0 */
 
-  uint32_t tmpSrReg = READ_REG(huart2.Instance->SR);
+  //uint32_t tmpSrReg = READ_REG(huart2.Instance->SR);
 
   // Check if a LIN break was detected
-  if(tmpSrReg & USART_SR_LBD)
+  //if(tmpSrReg & USART_SR_LBD)
+  if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_LBD))
   {
 	  // TODO - Do something...
+	  //xEventGroupSetBitsFromISR()
 
 	  // Clear the LIN break flag by writing a 0 to it
-	  WRITE_REG(huart2.Instance->SR, (tmpSrReg & ~(USART_SR_LBD)) );
+	  //WRITE_REG(huart2.Instance->SR, (tmpSrReg & ~(USART_SR_LBD)) );
+	  __HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_LBD);
   }
 
 
