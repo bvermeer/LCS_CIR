@@ -64,6 +64,13 @@ osThreadId LinTaskHandle;
 /* USER CODE BEGIN Variables */
 osThreadId linTaskHandle;
 
+struct {
+	uint8_t 	xMin 	: 1;
+	uint8_t 	xMax 	: 1;
+	uint8_t 	unused 	: 2;
+	uint16_t	gantryAlignmentSensor : 12;
+} sensorData;
+
 /* USER CODE END Variables */
 
 /* Function prototypes -------------------------------------------------------*/
@@ -73,7 +80,8 @@ void StartLinTask(void const * argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* USER CODE BEGIN FunctionPrototypes */
-void StartLinTask(void const * argument);
+void TriggerEstop(void);
+void ResetEstop(void);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -124,10 +132,36 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	HAL_GPIO_WritePin(PC13_LED_GPIO_Port, PC13_LED_Pin, GPIO_PIN_RESET);
-    osDelay(250);
-    HAL_GPIO_WritePin(PC13_LED_GPIO_Port, PC13_LED_Pin, GPIO_PIN_SET);
-    osDelay(250);
+	//HAL_GPIO_WritePin(PC13_LED_GPIO_Port, PC13_LED_Pin, GPIO_PIN_RESET);
+    //osDelay(250);
+    //HAL_GPIO_WritePin(PC13_LED_GPIO_Port, PC13_LED_Pin, GPIO_PIN_SET);
+    //osDelay(250);
+
+
+	  // Get the latest sensor data
+	  sensorData.xMin = (uint8_t)HAL_GPIO_ReadPin(XMIN_IN_GPIO_Port, XMIN_IN_Pin);
+	  sensorData.xMax = (uint8_t)HAL_GPIO_ReadPin(XMAX_IN_GPIO_Port, XMAX_IN_Pin);
+
+	  // TODO BV - get the data from the gantry alignment sensor
+
+
+
+	  // Check if the sensor data is in the safe zone
+	  if(sensorData.xMin == 0)
+	  {
+		  // xMin sensor tripped!
+		  TriggerEstop();
+	  }
+
+	  if(sensorData.xMax == 0)
+	  {
+		  // xMax sensor tripped!
+		  TriggerEstop();
+	  }
+
+	  // TODO BV - check the gantry alignment sensor against the safe limit
+
+	  osDelay(100);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -152,7 +186,15 @@ void StartLinTask(void const * argument)
 }
 
 /* USER CODE BEGIN Application */
+void TriggerEstop()
+{
+	HAL_GPIO_WritePin(STOP_OUT_GPIO_Port, STOP_OUT_Pin, GPIO_PIN_SET);
+}
 
+void ResetEstop()
+{
+	HAL_GPIO_WritePin(STOP_OUT_GPIO_Port, STOP_OUT_Pin, GPIO_PIN_RESET);
+}
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
