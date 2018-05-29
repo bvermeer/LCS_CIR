@@ -55,6 +55,8 @@
 #include "gpio.h"
 #include "usart.h"
 #include <string.h>
+#include "mySemaphores.h"
+#include "stm32f1xx_hal_uart.h"
 /* USER CODE END Includes */
 
 /* Variables -----------------------------------------------------------------*/
@@ -99,7 +101,9 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
+	linTaskSemaphore = xSemaphoreCreateBinary();
+
+	assert(linTaskSemaphore != NULL);
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -170,17 +174,30 @@ void StartDefaultTask(void const * argument)
 void StartLinTask(void const * argument)
 {
   /* USER CODE BEGIN StartLinTask */
-  /* Infinite loop */
 	char charBuf[30] = "LIN thread started.\r\n";
 
 	HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 
 	strcpy(charBuf, "    LIN loop ran.\r\n");
 
+  /* Infinite loop */
 	while(1)
 	{
-		osDelay(1000);
+		// Wait until a LIN event occurs
+		xSemaphoreTake(linTaskSemaphore, portMAX_DELAY);
+
+		// DEBUG
 		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+
+		// Check if a LIN break was detected
+		if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_LBD))
+		{
+			// TODO - Set a bool true to say the next expected transmission is the ID packet
+
+			// Clear the LIN break flag by writing a 0 to it
+			__HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_LBD);
+		}
+
 	}
   /* USER CODE END StartLinTask */
 }

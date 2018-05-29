@@ -1,0 +1,17 @@
+/*
+ * mySemaphores.h
+ *
+ *  Created on: May 28, 2018
+ *      Author: blake
+ */
+
+#ifndef MYSEMAPHORES_H_
+#define MYSEMAPHORES_H_
+
+#include "portmacro.h"
+#include "projdefs.h"
+
+SemaphoreHandle_t linTaskSemaphore = NULL;
+BaseType_t linTaskHigherPriorityTaskWoken = pdFALSE;
+
+#endif /* MYSEMAPHORES_H_ */

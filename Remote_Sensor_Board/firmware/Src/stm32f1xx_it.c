@@ -40,6 +40,7 @@
 #include "FreeRTOS.h"
 #include "event_groups.h"
 #include "stm32f1xx_hal_uart.h"
+#include "mySemaphores.h"
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -193,17 +194,6 @@ void USART2_IRQHandler(void)
 
   //uint32_t tmpSrReg = READ_REG(huart2.Instance->SR);
 
-  // Check if a LIN break was detected
-  //if(tmpSrReg & USART_SR_LBD)
-  if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_LBD))
-  {
-	  // TODO - Do something...
-	  //xEventGroupSetBitsFromISR()
-
-	  // Clear the LIN break flag by writing a 0 to it
-	  //WRITE_REG(huart2.Instance->SR, (tmpSrReg & ~(USART_SR_LBD)) );
-	  __HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_LBD);
-  }
 
 
   /* USER CODE END USART2_IRQn 0 */
@@ -214,6 +204,19 @@ void USART2_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+
+/**
+ * @brief Implement a custom handler for the UART RX callback
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == huart2)
+	{
+		// Unblock the LIN task when data is received on USART2 (the USART the LIN transceiver is on)
+		xSemaphoreGiveFromISR(linTaskSemaphore, linTaskHigherPriorityTaskWoken);
+	}
+}
+
 
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
