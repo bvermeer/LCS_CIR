@@ -57,6 +57,7 @@
 #include <string.h>
 #include "mySemaphores.h"
 #include "stm32f1xx_hal_uart.h"
+#include "DS2482.h"
 /* USER CODE END Includes */
 
 /* Variables -----------------------------------------------------------------*/
@@ -84,6 +85,7 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 /* USER CODE BEGIN FunctionPrototypes */
 void TriggerEstop(void);
 void ResetEstop(void);
+void SetupDS2482(void);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -103,11 +105,12 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_SEMAPHORES */
 	linTaskSemaphore = xSemaphoreCreateBinary();
 
-	assert(linTaskSemaphore != NULL);
+	//assert(linTaskSemaphore != NULL);
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  SetupDS2482();
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -149,19 +152,7 @@ void StartDefaultTask(void const * argument)
 	  // TODO BV - get the data from the gantry alignment sensor
 
 
-
 	  // Check if the sensor data is in the safe zone
-	  if(sensorData.xMin == 0)
-	  {
-		  // xMin sensor tripped!
-		  TriggerEstop();
-	  }
-
-	  if(sensorData.xMax == 0)
-	  {
-		  // xMax sensor tripped!
-		  TriggerEstop();
-	  }
 
 	  // TODO BV - check the gantry alignment sensor against the safe limit
 
@@ -179,6 +170,7 @@ void StartLinTask(void const * argument)
 	HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 
 	strcpy(charBuf, "    LIN loop ran.\r\n");
+
 
   /* Infinite loop */
 	while(1)
@@ -211,6 +203,18 @@ void TriggerEstop()
 void ResetEstop()
 {
 	HAL_GPIO_WritePin(STOP_OUT_GPIO_Port, STOP_OUT_Pin, GPIO_PIN_RESET);
+}
+
+void SetupDS2482()
+{
+	DS2482_Reset();
+
+	DS2482_Set_Read_Pointer(STATUS_REG);
+
+	uint8_t byte;
+
+	DS2482_Read_Byte(&byte);
+
 }
 /* USER CODE END Application */
 

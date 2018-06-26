@@ -11,7 +11,7 @@
 #include "portmacro.h"
 #include "projdefs.h"
 
-SemaphoreHandle_t linTaskSemaphore = NULL;
-BaseType_t linTaskHigherPriorityTaskWoken = pdFALSE;
+SemaphoreHandle_t linTaskSemaphore;
+BaseType_t linTaskHigherPriorityTaskWoken;
 
 #endif /* MYSEMAPHORES_H_ */

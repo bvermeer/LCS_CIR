@@ -210,10 +210,10 @@ void USART2_IRQHandler(void)
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if(huart == huart2)
+	if(huart == &huart2)
 	{
 		// Unblock the LIN task when data is received on USART2 (the USART the LIN transceiver is on)
-		xSemaphoreGiveFromISR(linTaskSemaphore, linTaskHigherPriorityTaskWoken);
+		xSemaphoreGiveFromISR(linTaskSemaphore, &linTaskHigherPriorityTaskWoken);
 	}
 }
 
