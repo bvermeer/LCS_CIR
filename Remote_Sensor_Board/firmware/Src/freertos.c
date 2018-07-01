@@ -63,9 +63,9 @@
 /* Variables -----------------------------------------------------------------*/
 osThreadId defaultTaskHandle;
 osThreadId LinTaskHandle;
+osThreadId ds18S20TempSensorTaskHandle;
 
 /* USER CODE BEGIN Variables */
-osThreadId linTaskHandle;
 
 struct {
 	uint8_t 	xMin 	: 1;
@@ -74,11 +74,14 @@ struct {
 	uint16_t	gantryAlignmentSensor : 12;
 } sensorData;
 
+int16_t sensorTemp;
+
 /* USER CODE END Variables */
 
 /* Function prototypes -------------------------------------------------------*/
 void StartDefaultTask(void const * argument);
 void StartLinTask(void const * argument);
+void StartDS18S20TempSensorTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -104,6 +107,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
 	linTaskSemaphore = xSemaphoreCreateBinary();
+	tempAccessSemaphore = xSemaphoreCreateMutex();
 
 	//assert(linTaskSemaphore != NULL);
   /* USER CODE END RTOS_SEMAPHORES */
@@ -122,6 +126,9 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(LinTask, StartLinTask, osPriorityAboveNormal, 0, 128);
   LinTaskHandle = osThreadCreate(osThread(LinTask), NULL);
 
+  // definition and creation of ds18S20TempSensorTask
+  osThreadDef(ds18S20TempSensorTask, StartDS18S20TempSensorTask, osPriorityNormal, 0, 128);
+  ds18S20TempSensorTaskHandle = osThreadCreate(osThread(ds18S20TempSensorTask), NULL);
   /* USER CODE BEGIN RTOS_THREADS */
 
   /* USER CODE END RTOS_THREADS */
@@ -155,6 +162,18 @@ void StartDefaultTask(void const * argument)
 	  // Check if the sensor data is in the safe zone
 
 	  // TODO BV - check the gantry alignment sensor against the safe limit
+
+	  // Check the temperature reading
+	  xSemaphoreTake(tempAccessSemaphore, 5);
+
+	  // TODO BV - Change this to use a define
+	  if(sensorTemp > 50)
+	  {
+		  TriggerEstop();
+	  }
+
+	  xSemaphoreGive(tempAccessSemaphore);
+
 
 	  osDelay(100);
   }
@@ -195,6 +214,45 @@ void StartLinTask(void const * argument)
 }
 
 /* USER CODE BEGIN Application */
+
+void StartDS18S20TempSensorTask(void const * argument)
+{
+	while(1)
+	{
+		DS2482_One_Wire_Reset();
+		DS2482_Write_Byte(0xCC); // Skip ROM command
+
+		// Test reading the temperature from the DS18S20
+		DS2482_Write_Config(false, true, true);  // Enable strong pullup for temp conversion
+		DS2482_Write_Byte(0x44);  // Get the temp
+
+		osDelay(750); // Wait for the temp conversion
+
+
+		DS2482_One_Wire_Reset();
+		DS2482_Write_Byte(0xCC); // Skip ROM command
+
+		DS2482_Write_Byte(0xbe); 	// Read scratchpad command
+
+		uint8_t tempBytes[2];
+
+		DS2482_Read_Byte(&tempBytes[0]); 	// LSB temp byte
+		DS2482_Read_Byte(&tempBytes[1]); 	// MSB temp byte
+
+		// Convert the temp to C
+		xSemaphoreTake(tempAccessSemaphore, 5);
+		sensorTemp = (tempBytes[1] << 8) | tempBytes[0];
+		sensorTemp = sensorTemp >> 1;
+		xSemaphoreGive(tempAccessSemaphore);
+
+
+		// Delay some time before checking the temp again
+		osDelay(5000);
+	}
+
+}
+
+
 void TriggerEstop()
 {
 	HAL_GPIO_WritePin(STOP_OUT_GPIO_Port, STOP_OUT_Pin, GPIO_PIN_SET);
@@ -209,12 +267,13 @@ void SetupDS2482()
 {
 	DS2482_Reset();
 
+	DS2482_Write_Config(false, false, true);
+
 	DS2482_Set_Read_Pointer(STATUS_REG);
 
 	uint8_t byte;
 
 	DS2482_Read_Byte(&byte);
-
 }
 /* USER CODE END Application */
 

@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "i2c.h"
+#include "stm32f1xx_hal.h"
 
 #define DS2482_I2C_ADDR 0x18	// 7-bit I2C address of the DS2482. Change this to whatever I2C address your device is set to.
 
@@ -62,6 +63,7 @@ bool DS2482_Set_Read_Pointer(Ds2482_regs regAddr);
 bool DS2482_Write_Config(bool OneWireSpeed, bool StrongPullup, bool ActivePullup);
 bool DS2482_Write_Byte(uint8_t dataByte);
 bool DS2482_Read_Byte(uint8_t *dataByte);
+bool DS2482_One_Wire_Reset(void);
 
 
 #endif /* DS2482_H_ */

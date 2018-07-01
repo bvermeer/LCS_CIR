@@ -12,6 +12,7 @@
 #include "projdefs.h"
 
 SemaphoreHandle_t linTaskSemaphore;
+SemaphoreHandle_t tempAccessSemaphore;
 BaseType_t linTaskHigherPriorityTaskWoken;
 
 #endif /* MYSEMAPHORES_H_ */
