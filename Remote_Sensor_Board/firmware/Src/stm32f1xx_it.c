@@ -213,7 +213,24 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	if(huart == &huart2)
 	{
 		// Unblock the LIN task when data is received on USART2 (the USART the LIN transceiver is on)
+		linTaskHigherPriorityTaskWoken = pdFALSE;
 		xSemaphoreGiveFromISR(linTaskSemaphore, &linTaskHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR(linTaskHigherPriorityTaskWoken);
+	}
+}
+
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+	if(huart->ErrorCode == HAL_UART_ERROR_ORE)
+	{
+		// Remove the error condition
+		huart->ErrorCode = HAL_UART_ERROR_NONE;
+
+		// Set the correct state so that UART_RX_IT works correctly
+		huart->RxState = HAL_UART_STATE_BUSY_RX;
+
+		//HAL_UART_AbortReceive_IT(huart);
 	}
 }
 

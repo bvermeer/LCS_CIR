@@ -58,6 +58,8 @@
 #include "mySemaphores.h"
 #include "stm32f1xx_hal_uart.h"
 #include "DS2482.h"
+#include "SensorBoardConfig.h"
+#include "stm32f103xb.h"
 /* USER CODE END Includes */
 
 /* Variables -----------------------------------------------------------------*/
@@ -71,10 +73,9 @@ struct {
 	uint8_t 	xMin 	: 1;
 	uint8_t 	xMax 	: 1;
 	uint8_t 	unused 	: 2;
-	uint16_t	gantryAlignmentSensor : 12;
+	uint16_t	spindleTempSensor : 12;
 } sensorData;
 
-int16_t sensorTemp;
 
 /* USER CODE END Variables */
 
@@ -167,7 +168,7 @@ void StartDefaultTask(void const * argument)
 	  xSemaphoreTake(tempAccessSemaphore, 5);
 
 	  // TODO BV - Change this to use a define
-	  if(sensorTemp > 50)
+	  if(sensorData.spindleTempSensor > 50)
 	  {
 		  TriggerEstop();
 	  }
@@ -188,8 +189,10 @@ void StartLinTask(void const * argument)
 
 	HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 
-	strcpy(charBuf, "    LIN loop ran.\r\n");
 
+	uint8_t receiveBytes[2] = {0, 0};
+
+	HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
 
   /* Infinite loop */
 	while(1)
@@ -197,17 +200,60 @@ void StartLinTask(void const * argument)
 		// Wait until a LIN event occurs
 		xSemaphoreTake(linTaskSemaphore, portMAX_DELAY);
 
-		// DEBUG
-		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+		// Clear the receive data register
+		huart2.Instance->DR = 0;
 
-		// Check if a LIN break was detected
-		if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_LBD))
+		if(receiveBytes[0] == 0x55)
 		{
-			// TODO - Set a bool true to say the next expected transmission is the ID packet
+			if(receiveBytes[1] == LIN_ID)
+			{
+				//uint8_t testData[2] = {0xF0, 0x0F};
 
-			// Clear the LIN break flag by writing a 0 to it
-			__HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_LBD);
+				uint8_t sendData[2];
+				sendData[0] = sensorData.xMin | (sensorData.xMax << 1) | ((sensorData.spindleTempSensor & 0xF00) >> 4);
+				sendData[1] = sensorData.spindleTempSensor & 0xFF;
+
+				CLEAR_BIT(huart2.Instance->CR1, USART_CR1_RE);
+				HAL_UART_Transmit(&huart2, sendData, 2, 20);
+
+				strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
+				HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+			}
 		}
+
+		// // Check if a LIN break was detected
+		// if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_LBD))
+		// {
+		// 	lastByteBreak = true;
+
+		// 	// Clear the LIN break flag by writing a 0 to it
+		// 	__HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_LBD);
+		// }
+		// else if(lastByteBreak)
+		// {
+		// 	lastByteBreak = false;
+
+		// 	// Get the Ident byte
+		// 	identByteReceived = huart2.Instance->DR;
+
+		// 	if(identByteReceived == LIN_ID)
+		// 	{
+		// 		uint8_t testData[2] = {0xFA, 0xAF};
+
+		// 		HAL_UART_Transmit(&huart2, testData, 2, 5);
+
+		// 		strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
+		// 		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+		// 	}
+		// }
+
+		//__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
+		SET_BIT(huart2.Instance->CR1, USART_CR1_RE);
+		HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
+
+		// // DEBUG
+		// strcpy(charBuf, "    LIN loop ran.\r\n");
+		// HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 
 	}
   /* USER CODE END StartLinTask */
@@ -241,8 +287,8 @@ void StartDS18S20TempSensorTask(void const * argument)
 
 		// Convert the temp to C
 		xSemaphoreTake(tempAccessSemaphore, 5);
-		sensorTemp = (tempBytes[1] << 8) | tempBytes[0];
-		sensorTemp = sensorTemp >> 1;
+		sensorData.spindleTempSensor = (tempBytes[1] << 8) | tempBytes[0];
+		sensorData.spindleTempSensor = sensorData.spindleTempSensor >> 1;
 		xSemaphoreGive(tempAccessSemaphore);
 
 
