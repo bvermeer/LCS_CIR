@@ -221,32 +221,6 @@ void StartLinTask(void const * argument)
 			}
 		}
 
-		// // Check if a LIN break was detected
-		// if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_LBD))
-		// {
-		// 	lastByteBreak = true;
-
-		// 	// Clear the LIN break flag by writing a 0 to it
-		// 	__HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_LBD);
-		// }
-		// else if(lastByteBreak)
-		// {
-		// 	lastByteBreak = false;
-
-		// 	// Get the Ident byte
-		// 	identByteReceived = huart2.Instance->DR;
-
-		// 	if(identByteReceived == LIN_ID)
-		// 	{
-		// 		uint8_t testData[2] = {0xFA, 0xAF};
-
-		// 		HAL_UART_Transmit(&huart2, testData, 2, 5);
-
-		// 		strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
-		// 		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
-		// 	}
-		// }
-
 		//__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
 		SET_BIT(huart2.Instance->CR1, USART_CR1_RE);
 		HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
