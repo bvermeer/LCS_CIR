@@ -65,7 +65,7 @@
 /* Variables -----------------------------------------------------------------*/
 osThreadId defaultTaskHandle;
 osThreadId LinTaskHandle;
-osThreadId ds18S20TempSensorTaskHandle;
+osThreadId TempSensorTaskHandle;
 
 /* USER CODE BEGIN Variables */
 
@@ -82,7 +82,7 @@ struct {
 /* Function prototypes -------------------------------------------------------*/
 void StartDefaultTask(void const * argument);
 void StartLinTask(void const * argument);
-void StartDS18S20TempSensorTask(void const * argument);
+void StartTempSensorTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -127,9 +127,10 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(LinTask, StartLinTask, osPriorityAboveNormal, 0, 128);
   LinTaskHandle = osThreadCreate(osThread(LinTask), NULL);
 
-  // definition and creation of ds18S20TempSensorTask
-  osThreadDef(ds18S20TempSensorTask, StartDS18S20TempSensorTask, osPriorityNormal, 0, 128);
-  ds18S20TempSensorTaskHandle = osThreadCreate(osThread(ds18S20TempSensorTask), NULL);
+  /* definition and creation of TempSensorTask */
+  osThreadDef(TempSensorTask, StartTempSensorTask, osPriorityNormal, 0, 128);
+  TempSensorTaskHandle = osThreadCreate(osThread(TempSensorTask), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
 
   /* USER CODE END RTOS_THREADS */
@@ -189,16 +190,25 @@ void StartLinTask(void const * argument)
 
 	HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 
+	// Enable the LIN transceiver CS pin
+	HAL_GPIO_WritePin(LIN_CS_GPIO_Port, LIN_CS_Pin, GPIO_PIN_SET);
+
 
 	uint8_t receiveBytes[2] = {0, 0};
+
+	// Enable LIN break character detect
+	//__HAL_UART_ENABLE_IT(&huart2, UART_IT_LBD);
+	//__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
 
 	HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
 
   /* Infinite loop */
 	while(1)
 	{
-		// Wait until a LIN event occurs
+		// Wait until a LIN break character event occurs
 		xSemaphoreTake(linTaskSemaphore, portMAX_DELAY);
+
+		//HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
 
 		// Clear the receive data register
 		huart2.Instance->DR = 0;
@@ -233,10 +243,11 @@ void StartLinTask(void const * argument)
   /* USER CODE END StartLinTask */
 }
 
-/* USER CODE BEGIN Application */
-
-void StartDS18S20TempSensorTask(void const * argument)
+/* StartTempSensorTask function */
+void StartTempSensorTask(void const * argument)
 {
+  /* USER CODE BEGIN StartTempSensorTask */
+  /* Infinite loop */
 	while(1)
 	{
 		DS2482_One_Wire_Reset();
@@ -269,9 +280,10 @@ void StartDS18S20TempSensorTask(void const * argument)
 		// Delay some time before checking the temp again
 		osDelay(5000);
 	}
-
+  /* USER CODE END StartTempSensorTask */
 }
 
+/* USER CODE BEGIN Application */
 
 void TriggerEstop()
 {
