@@ -197,10 +197,12 @@ void StartLinTask(void const * argument)
 	uint8_t receiveBytes[2] = {0, 0};
 
 	// Enable LIN break character detect
-	//__HAL_UART_ENABLE_IT(&huart2, UART_IT_LBD);
-	//__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
+	__HAL_UART_ENABLE_IT(&huart2, UART_IT_LBD);
+	__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
 
-	HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
+	//HAL_StatusTypeDef rxRet = HAL_UART_Receive_DMA(&huart2, receiveBytes, 2);
+
+	//HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
 
   /* Infinite loop */
 	while(1)
@@ -208,32 +210,65 @@ void StartLinTask(void const * argument)
 		// Wait until a LIN break character event occurs
 		xSemaphoreTake(linTaskSemaphore, portMAX_DELAY);
 
+		// Disable LIN break character detect
+		__HAL_UART_DISABLE_IT(&huart2, UART_IT_LBD);
+		__HAL_UART_DISABLE_IT(&huart2, UART_IT_RXNE);
+
+
+		HAL_StatusTypeDef rxRet = HAL_UART_Receive_DMA(&huart2, receiveBytes, 2);
+		xSemaphoreTake(linTaskSemaphore, 5);
+
 		//HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
+		//xSemaphoreTake(linTaskSemaphore, portMAX_DELAY);
+		//HAL_StatusTypeDef rxRet = HAL_UART_Receive(&huart2, receiveBytes, 2, 5);
 
 		// Clear the receive data register
-		huart2.Instance->DR = 0;
+		//volatile uint16_t tmp = (uint16_t)(huart2.Instance->DR & (uint16_t)0x01FF);
+		//huart2.Instance->DR = 0;
 
-		if(receiveBytes[0] == 0x55)
+		snprintf(charBuf, sizeof(charBuf), "    LIN: %X %X\r\n", receiveBytes[0], receiveBytes[1]);
+		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+
+		if(rxRet == HAL_OK)
 		{
-			if(receiveBytes[1] == LIN_ID)
+			if(receiveBytes[0] == 0x55)
 			{
-				//uint8_t testData[2] = {0xF0, 0x0F};
+				if(receiveBytes[1] == LIN_ID)
+				{
+					//uint8_t testData[2] = {0xF0, 0x0F};
 
-				uint8_t sendData[2];
-				sendData[0] = sensorData.xMin | (sensorData.xMax << 1) | ((sensorData.spindleTempSensor & 0xF00) >> 4);
-				sendData[1] = sensorData.spindleTempSensor & 0xFF;
+					uint8_t sendData[2];
+					sendData[0] = sensorData.xMin | (sensorData.xMax << 1) | ((sensorData.spindleTempSensor & 0xF00) >> 4);
+					sendData[1] = sensorData.spindleTempSensor & 0xFF;
 
-				CLEAR_BIT(huart2.Instance->CR1, USART_CR1_RE);
-				HAL_UART_Transmit(&huart2, sendData, 2, 20);
+					__disable_irq();
+					CLEAR_BIT(huart2.Instance->CR1, USART_CR1_RE);
+					HAL_UART_Transmit(&huart2, sendData, 2, 20);
+					SET_BIT(huart2.Instance->CR1, USART_CR1_RE);
+					__enable_irq();
 
-				strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
-				HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+					strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
+					HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+				}
 			}
 		}
+		else
+		{
+			HAL_UART_AbortReceive(&huart2);
+		}
 
+		// Clear previous receive bytes
+		for(int i = 0; i < sizeof(receiveBytes); i++)
+		{
+			receiveBytes[i] = 0;
+		}
+
+		__HAL_UART_ENABLE_IT(&huart2, UART_IT_LBD);
+		__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
 		//__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
-		SET_BIT(huart2.Instance->CR1, USART_CR1_RE);
-		HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
+		//HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
+
+		//HAL_UART_Receive_DMA(&huart2, receiveBytes, 2);
 
 		// // DEBUG
 		// strcpy(charBuf, "    LIN loop ran.\r\n");

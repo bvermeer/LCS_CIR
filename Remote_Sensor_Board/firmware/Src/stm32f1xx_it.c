@@ -44,6 +44,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern DMA_HandleTypeDef hdma_usart2_rx;
 extern UART_HandleTypeDef huart2;
 
 extern TIM_HandleTypeDef htim1;
@@ -172,6 +173,20 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+* @brief This function handles DMA1 channel6 global interrupt.
+*/
+void DMA1_Channel6_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart2_rx);
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 1 */
+}
+
+/**
 * @brief This function handles TIM1 update interrupt.
 */
 void TIM1_UP_IRQHandler(void)
@@ -219,34 +234,78 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart2)
+	{
+		// Disable LIN break character detect
+		__HAL_UART_DISABLE_IT(&huart2, UART_IT_LBD);
+		__HAL_UART_DISABLE_IT(&huart2, UART_IT_ERR);
+		__HAL_UART_DISABLE_IT(&huart2, UART_IT_RXNE);
+	}
+}
+
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-	//if(huart->ErrorCode == HAL_UART_ERROR_FE)
-	//{
-	//	if(huart == &huart2)
-	//	{
-	//		// Clear the receive data register
-	//		huart2.Instance->DR = 0;
-
-	//		// LIN break character detected
-	//		linTaskHigherPriorityTaskWoken = pdFALSE;
-	//		xSemaphoreGiveFromISR(linTaskSemaphore, &linTaskHigherPriorityTaskWoken);
-	//		portYIELD_FROM_ISR(linTaskHigherPriorityTaskWoken);
-
-	//	}
-	//}
-
-	if(huart->ErrorCode == HAL_UART_ERROR_ORE)
+	if(huart->ErrorCode & HAL_UART_ERROR_FE)
 	{
+		// Clear the receive data register
+		volatile uint16_t tmp = (uint16_t)(huart->Instance->DR & (uint16_t)0x01FF);
+
+		// LIN break character detected
+		// Clear LBD flag
+		CLEAR_BIT(huart->Instance->SR, USART_SR_LBD);
+
+		if(huart == &huart2)
+		{
+			if(huart->ErrorCode == HAL_UART_ERROR_FE)
+			{
+				linTaskHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(linTaskSemaphore, &linTaskHigherPriorityTaskWoken);
+				portYIELD_FROM_ISR(linTaskHigherPriorityTaskWoken);
+			}
+
+			// // Remove the error condition
+			// huart->ErrorCode = HAL_UART_ERROR_NONE;
+		}
+	}
+
+	if(huart->ErrorCode & HAL_UART_ERROR_ORE)
+	{
+		// Clear the receive data register
+		volatile uint16_t tmp = (uint16_t)(huart->Instance->DR & (uint16_t)0x01FF);
+
+		CLEAR_BIT(huart->Instance->SR, USART_SR_ORE);
+
 		// Remove the error condition
 		huart->ErrorCode = HAL_UART_ERROR_NONE;
 
 		// Set the correct state so that UART_RX_IT works correctly
-		huart->RxState = HAL_UART_STATE_BUSY_RX;
+		huart->RxState = HAL_UART_STATE_READY;
 
-		//HAL_UART_AbortReceive_IT(huart);
+		if(huart == &huart2)
+		{
+			//HAL_UART_AbortReceive(huart);
+
+			// Re-enable LIN break detect
+			SET_BIT(huart->Instance->CR1, USART_CR1_RE);
+			__HAL_UART_ENABLE_IT(huart, UART_IT_LBD);
+			__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
+		}
 	}
+
+
+	if(huart == &huart2)
+	{
+		//HAL_UART_AbortReceive(huart);
+
+		// // Re-enable LIN break detect
+		// SET_BIT(huart->Instance->CR1, USART_CR1_RE);
+		// __HAL_UART_ENABLE_IT(huart, UART_IT_LBD);
+		// __HAL_UART_ENABLE_IT(&huart2, UART_IT_ERR);
+	}
+
 }
 
 
