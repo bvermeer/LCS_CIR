@@ -60,6 +60,7 @@
 #include "DS2482.h"
 #include "SensorBoardConfig.h"
 #include "stm32f103xb.h"
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Variables -----------------------------------------------------------------*/
@@ -143,6 +144,8 @@ void MX_FREERTOS_Init(void) {
 /* StartDefaultTask function */
 void StartDefaultTask(void const * argument)
 {
+  bool spindleCooldownEvent = false;
+
 
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
@@ -168,10 +171,21 @@ void StartDefaultTask(void const * argument)
 	  // Check the temperature reading
 	  xSemaphoreTake(tempAccessSemaphore, 5);
 
-	  // TODO BV - Change this to use a define
-	  if(sensorData.spindleTempSensor > 50)
+	  // Check if the spindle when over temp
+	  if(sensorData.spindleTempSensor >= SPINDLE_CUTOFF_TEMP)
 	  {
 		  TriggerEstop();
+		  spindleCooldownEvent = true;
+	  }
+
+	  // Wait for the spindle to cool off before release the ESTOP
+	  if(spindleCooldownEvent)
+	  {
+		  if(sensorData.spindleTempSensor < SPINDLE_COOLDOWN_TEMP)
+		  {
+			  ResetEstop();
+			  spindleCooldownEvent = false;
+		  }
 	  }
 
 	  xSemaphoreGive(tempAccessSemaphore);
@@ -218,16 +232,8 @@ void StartLinTask(void const * argument)
 		HAL_StatusTypeDef rxRet = HAL_UART_Receive_DMA(&huart2, receiveBytes, 2);
 		xSemaphoreTake(linTaskSemaphore, 5);
 
-		//HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
-		//xSemaphoreTake(linTaskSemaphore, portMAX_DELAY);
-		//HAL_StatusTypeDef rxRet = HAL_UART_Receive(&huart2, receiveBytes, 2, 5);
-
-		// Clear the receive data register
-		//volatile uint16_t tmp = (uint16_t)(huart2.Instance->DR & (uint16_t)0x01FF);
-		//huart2.Instance->DR = 0;
-
-		snprintf(charBuf, sizeof(charBuf), "    LIN: %X %X\r\n", receiveBytes[0], receiveBytes[1]);
-		HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+		// snprintf(charBuf, sizeof(charBuf), "    LIN: %X %X\r\n", receiveBytes[0], receiveBytes[1]);
+		// HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 
 		if(rxRet == HAL_OK)
 		{
@@ -247,8 +253,8 @@ void StartLinTask(void const * argument)
 					SET_BIT(huart2.Instance->CR1, USART_CR1_RE);
 					__enable_irq();
 
-					strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
-					HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
+					//strcpy(charBuf, "Sent 0xFA 0xAF over LIN.\r\n");
+					//HAL_UART_Transmit(&huart1, (uint8_t*)charBuf, (uint16_t)strlen(charBuf), 20);
 				}
 			}
 		}
@@ -263,12 +269,9 @@ void StartLinTask(void const * argument)
 			receiveBytes[i] = 0;
 		}
 
+		// Enable LIN break detection
 		__HAL_UART_ENABLE_IT(&huart2, UART_IT_LBD);
 		__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
-		//__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
-		//HAL_UART_Receive_IT(&huart2, receiveBytes, 2);
-
-		//HAL_UART_Receive_DMA(&huart2, receiveBytes, 2);
 
 		// // DEBUG
 		// strcpy(charBuf, "    LIN loop ran.\r\n");
